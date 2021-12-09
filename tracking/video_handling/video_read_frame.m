@@ -40,33 +40,21 @@ function [im,id] = video_read_frame(vinfo, id)
 
 
 
+
    %%% standard video format, read by VideoReader
    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    elseif (strcmp(vinfo.type,'vidobj'))
       im = read(vinfo.vidobj,id+1);
-      % if (id >= 2)
-      %     im = read(vinfo.vidobj,id-1);
-      % else
-      %     im = read(vinfo.vidobj,id+1);
-      % end
+      if (id < 3)
+          im = read(vinfo.vidobj,1);
+      else
+          im = read(vinfo.vidobj,id+1);
+      end
       im = double(im)/255;
       if size(im,3) > 1
           im = (im(:,:,1)+im(:,:,2)+im(:,:,3))./3;
       end
    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    %
-    % %%% standard video format, read by VideoReader
-    % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % elseif (strcmp(vinfo.type,'vidFReader'))
-    %  im = vinfo.videoFReader();
-    %  im = double(im)/255;
-    %  if size(im,3) > 1
-    %      im = (im(:,:,1)+im(:,:,2)+im(:,:,3))./3;
-    %  end
-    % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
 
 
 
