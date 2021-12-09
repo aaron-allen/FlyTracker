@@ -3,8 +3,8 @@
 %
 %    [im,id] = video_read_frame(vinfo, id)
 %
-% returns im, the frame of the video specified by id (0-indexed), and the 
-% true frame id of the im returned (for videos with missing frames this is  
+% returns im, the frame of the video specified by id (0-indexed), and the
+% true frame id of the im returned (for videos with missing frames this is
 % the nearest neighbor to the requested id). All returned images are
 % converted to grayscale.
 %
@@ -29,30 +29,55 @@ function [im,id] = video_read_frame(vinfo, id)
       % convert to grayscale if needed
       if (size(im,3) > vinfo.sz)
          im = rgb2gray(im);
-      end   
+      end
    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    %%% .ufmf format (requires JAABA or Ctrax to be installed)
-   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%      
+   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    elseif (strcmp(vinfo.type,'ufmf'))
       im = ufmf_read_frame(vinfo.ufmf, id+1);
       im = double(im)/255;
-   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%   
+   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
    %%% standard video format, read by VideoReader
-   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%      
+   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    elseif (strcmp(vinfo.type,'vidobj'))
       im = read(vinfo.vidobj,id+1);
+      % if (id >= 2)
+      %     im = read(vinfo.vidobj,id-1);
+      % else
+      %     im = read(vinfo.vidobj,id+1);
+      % end
       im = double(im)/255;
       if size(im,3) > 1
           im = (im(:,:,1)+im(:,:,2)+im(:,:,3))./3;
-      end      
-   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%   
+      end
+   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %
+    % %%% standard video format, read by VideoReader
+    % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % elseif (strcmp(vinfo.type,'vidFReader'))
+    %  im = vinfo.videoFReader();
+    %  im = double(im)/255;
+    %  if size(im,3) > 1
+    %      im = (im(:,:,1)+im(:,:,2)+im(:,:,3))./3;
+    %  end
+    % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
    %%% standard video format, read by mmread
-   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%      
+   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    elseif (strcmp(vinfo.type,'mmread'))
       % check if frame is in cache
       if (~((vinfo.mmread.cache.is_valid) && ...
             (vinfo.mmread.cache.f_start <= id) && ...
-              (id <= vinfo.mmread.cache.f_end)))         
+              (id <= vinfo.mmread.cache.f_end)))
          cache_size = vinfo.mmread.cache.cache_size;
          % set cache frame range
          f_start = id;
@@ -64,7 +89,7 @@ function [im,id] = video_read_frame(vinfo, id)
          t_end   = (f_end + 0.8)./(vinfo.fps);
          % read video file
          vid = mmread(vinfo.filename, [], [t_start t_end]);
-         % handle the case where mmread failed to obtain the id by 
+         % handle the case where mmread failed to obtain the id by
          %    re-reading with larger padding around the frame
          if numel(vid.times)==0 || id/vinfo.fps < vid.times(1) - vinfo.fps/2
              f_start = id-5;
