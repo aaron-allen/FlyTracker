@@ -816,20 +816,7 @@ function openVideoFile(path,video_file)
     try
         cache_size = 1;
         vinfo_ = video_open(fullfile(path,video_file),cache_size);
-
-        %-----------------------------------------------------
-        % Current documentation seems to suggest that VideoReader/read is 1 indexed and not 0.
-        % This may be causing the off my one issue ..?..
-        % So I'me testing if the video has been opened by VideoReader, and is so to ask for
-        % frame 1 and not frame 0.
-        % if (strcmp(vinfo_.type,'vidobj'))
-        %     img = video_read_frame(vinfo_,1);
-        % else
-            img = video_read_frame(vinfo_,0);
-        % end
-        %-----------------------------------------------------
-
-
+        img = video_read_frame(vinfo_,0);
     catch
         customDialog('warn','Could not load video file',12*fig.fs)
         return;
