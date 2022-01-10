@@ -15,7 +15,7 @@
 %       dir_in          - directory containing input videos
 %       dir_out         - directory in which to save results
 %       filter          - file filter (eg '*.avi') (default: '*')
-%       
+%
 %    options.           - cluster processing and output options
 %       max_minutes     - maximum number of minutes to process (default: inf)
 %       num_cores       - number of workers to process jobs in parallel? (default: 1)
@@ -29,7 +29,7 @@
 %                         videos of the same rig based on a calibration
 %                         file from a different video. If not
 %                         defined/empty, all parameters are estimated from
-%                         this video.                          
+%                         this video.
 %       fr_samp         - Number of frames to sample when computing
 %                         background model. (default: 100)
 %       isdisplay       - Whether display is available for waitbars etc.
@@ -53,7 +53,7 @@
 %                         calibration. (default: not defined)
 %       n_flies_is_max  - Whether n_flies is an upper limit on the number
 %                         of flies or an actual count. (default: false)
-%      
+%
 %    f_calib            - file containing calibration data (default: [videos.dir_in]/calibration.mat)
 %    vinfo              - if specified, ignore videos and use loaded video
 %
@@ -64,15 +64,15 @@ function tracker(videos, options, f_calib, vinfo_or_video_file_name)
    if isempty(check)
        parentdir = fileparts(mfilename('fullpath'));
        addpath(genpath(parentdir));
-   end   
+   end
 
    if nargin == 0
        % If tracker is started with no arguments, load interface
        display_available = feature('ShowFigureWindows');
        if display_available
-          tracker_interface();          
-       else          
-          disp('No display available: run tracker with arguments:') 
+          tracker_interface();
+       else
+          disp('No display available: run tracker with arguments:')
           help tracker
           return
        end
@@ -88,12 +88,12 @@ end
 function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
    % default options
    options_def = DefaultOptions();
-   
+
    % set display variables
-   display_available = feature('ShowFigureWindows');   
+   display_available = feature('ShowFigureWindows');
    fs = 72/get(0,'ScreenPixelsPerInch'); % scale fonts to resemble OSX
    dh = [];
-   
+
    % fill in specified options
    if ((nargin < 2) || (isempty(options))), options = options_def; end
    options = set_defaults(options, options_def);
@@ -102,9 +102,9 @@ function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
      options.force_tracking = true;
      options.force_features = true;
    end
-   
+
    display_available = display_available && options.isdisplay;
-   
+
    % make sure we don't try to use more workers than available
    n_cores = feature('numCores');
    options.num_cores = min(n_cores,options.num_cores);
@@ -130,7 +130,7 @@ function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
            disp(str);
        end
    end
-   
+
    % collect video information
    if nargin > 3 && ~isempty(vinfo_or_video_file_name)
        if ischar(vinfo_or_video_file_name) || isstring(vinfo_or_video_file_name) ,
@@ -152,13 +152,13 @@ function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
        % check video list
        if ((~isfield(videos,'filter')) || (isempty(videos.filter)))
           videos.filter = '*';
-       end   
+       end
        % scan input directory for video files
        vid_files = dir(fullfile(videos.dir_in, videos.filter));
        vid_files([vid_files.isdir]) = [];
-       vid_files = { vid_files.name };       
+       vid_files = { vid_files.name };
    end
-   
+
    % make sure there are videos to process
    n_vids = numel(vid_files);
    if options.expdir_naming,
@@ -173,7 +173,7 @@ function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
        end
        return
    end
-   
+
    % create output directories
    if (~exist(videos.dir_out,'dir')), mkdir(videos.dir_out); end
    for n = 1:n_vids
@@ -182,7 +182,7 @@ function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
 %       dir_vid = fullfile(videos.dir_out, name);
       if (~exist(dir_vid,'dir')), mkdir(dir_vid); end
    end
-   
+
    % load calibration file
    if nargin < 3 || isempty(f_calib)
       f_calib = fullfile(videos.dir_in, 'calibration.mat');
@@ -205,53 +205,53 @@ function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
    % parent calibration
    if isfield(options, 'n_flies') ,
      parent_calib.n_flies = options.n_flies ;
-   end   
+   end
    if isfield(options, 'arena_r_mm') ,
      parent_calib.arena_r_mm = options.arena_r_mm ;
-   end   
+   end
    if isfield(options,'n_flies_is_max'),
      parent_calib.n_flies_is_max = options.n_flies_is_max;
    end
-   
+
    % compute maximum number of frames to process
    max_frames = round(options.max_minutes*parent_calib.FPS*60);
    endframe = options.startframe + max_frames - 1;
    min_chunksize = 100;
-   
+
    runinfo = struct;
    runinfo.vid_files = vid_files;
    runinfo.frs_per_chunk = cell(1,n_vids);
-   
+
    % package jobs to be run in sequence
    for n = 1:n_vids
       % get input video file
       [path1,name,ext] = fileparts(vid_files{n});
       if options.expdir_naming,
         [~,parent_name] = fileparts(path1);
-        display_name = [parent_name,filesep,name]; 
+        display_name = [parent_name,filesep,name];
       else
         display_name = name;
       end
       f_vid = fullfile(videos.dir_in, vid_files{n});
       assert(exist(f_vid,'file')>0);
       dir_vid = get_dir_vid(vid_files{n});
-      
+
       f_params = fullfile(dir_vid,[name,'-params.mat']);
       save(f_params,'options');
-      
+
       % display progress
       waitstr = ['Processing ' display_name ext ...
-          '   (movie ' num2str(n) '/' num2str(n_vids) ')'];      
-      if display_available 
-          if isempty(dh) || ~ishandle(dh)            
+          '   (movie ' num2str(n) '/' num2str(n_vids) ')'];
+      if display_available
+          if isempty(dh) || ~ishandle(dh)
             dh = customDialog('wait',waitstr,12*fs);
-          else            
+          else
             child = get(dh,'Children');
             set(child(1),'string',waitstr);
           end
       else
           disp(['*** ' waitstr])
-      end      
+      end
       % check whether video has already been tracked
       f_res_final = fullfile(dir_vid, [name '-track.mat']);
       if options.force_tracking && exist(f_res_final,'file'),
@@ -260,7 +260,7 @@ function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
       if exist(f_res_final,'file')
           disp('Movie already tracked')
           % compute features and learning files if specified
-          tracker_job('track_features',f_vid,f_res_final,f_calib,options,options.force_features);          
+          tracker_job('track_features',f_vid,f_res_final,f_calib,options,options.force_features);
           continue;
       end
       % load video
@@ -269,21 +269,21 @@ function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
         vinfo = video_open(f_vid);
         do_close = 1;
       end
-      % get length of video 
-      endframe = min(vinfo.n_frames,endframe); 
+      % get length of video
+      endframe = min(vinfo.n_frames,endframe);
       n_frames = endframe - options.startframe + 1;
-      %n_frames = min(vinfo.n_frames,max_frames); 
+      %n_frames = min(vinfo.n_frames,max_frames);
       % output filenames
       f_bg  = fullfile(dir_vid, [name '-bg.mat']);
       if n_vids > 1 && parent_calib.auto_detect
-          % generate new calibration files if multiple videos 
+          % generate new calibration files if multiple videos
           f_calib = fullfile(dir_vid, [name '-calibration.mat']);
       end
       % compute background and calibration if needed
       flag = tracker_job('track_calibrate', f_vid, f_bg, f_calib, options, parent_calib, vinfo, options.force_calib) ;
       if check_abort(flag), return; end
-      % load calibration 
-      D = load(f_calib); calib = D.calib;      
+      % load calibration
+      D = load(f_calib); calib = D.calib;
       % compute number of chunks to process
       if ~isempty(options.num_chunks)
           n_chunks = options.num_chunks;
@@ -293,7 +293,7 @@ function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
       n_chunks = ceil(n_frames./options.granularity);
       % loop through all chambers
       valid = find(calib.valid_chambers);
-      n_chambers = numel(valid);      
+      n_chambers = numel(valid);
       % process tracks for all chambers
       % set frame range
       frs = cell(1,n_chunks);
@@ -309,20 +309,20 @@ function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
                  chamber_str = '';
              else
                  chamber_str = ['-c' num2str(i)];
-             end    
+             end
              % determine output filename
              f_trk = fullfile(dir_vid, ...
                 [name chamber_str '-trk' '-' num2str(frs{c}.start,'%010d') '.mat'] ...
-             );     
+             );
             f_trks{c}{i} = f_trk;
          end
       end
       runinfo.frs_per_chunk{n} = frs;
       % check whether chamber files already exist
       f_res = fullfile(dir_vid, [name chamber_str '-track.mat']);
-      if ~exist(f_res,'file') 
+      if ~exist(f_res,'file')
           if options.num_cores > 1
-              success = zeros(1,n_chunks);              
+              success = zeros(1,n_chunks);
               parfor c = 1:n_chunks
                  % store job parameters
                  if strcmp(ext,'.ufmf')
@@ -340,8 +340,8 @@ function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
                  flag = tracker_job('track_process', f_vid, f_bg, f_calib, f_trks{c}, frs{c}, vinfo);
                  if check_abort(flag), return; end
               end
-          end      
-      end      
+          end
+      end
       % combine results for all chunks (per chamber)
       f_res_list = cell(1,n_chambers);
       for i=1:n_chambers
@@ -349,7 +349,7 @@ function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
              chamber_str = '';
           else
              chamber_str = ['-c' num2str(i)];
-          end     
+          end
           f_trk_list = cell(1,n_chunks);
           for c=1:n_chunks
               f_trk_list{c} = f_trks{c}{i};
@@ -367,63 +367,63 @@ function run_tracker(videos, options, f_calib, vinfo_or_video_file_name)
       end
       % compute features and learning files if specified
       tracker_job('track_features', f_vid, f_res_final, f_calib, options, 1);
-      
+
       % close video
       if do_close
         video_close(vinfo);
         vinfo = [];
       end
    end
-   
+
    save(f_params,'runinfo','-append');
-   
-   if ~isempty(dh) && ishandle(dh)      
+
+   if ~isempty(dh) && ishandle(dh)
        child = get(dh,'Children');
        set(child(1),'string','Finished!');
        pause(2)
-       delete(dh); 
+       delete(dh);
    end
-   
+
    function do_abort = check_abort(flag)
       do_abort = 0;
       if ~flag
-          if ~isempty(dh) && ishandle(dh), 
+          if ~isempty(dh) && ishandle(dh),
               child = get(dh,'Children');
               set(child(1),'string','** canceled by user **');
               pause(2)
-              delete(dh); 
+              delete(dh);
           end
           do_abort = 1;
       end
    end
- 
+
   function dir_vid = get_dir_vid(vid_file)
     if options.expdir_naming,
       dir_vid = videos.dir_out;
-    else    
+    else
       [~, name1] = fileparts(vid_file);
       dir_vid = fullfile(videos.dir_out, name1);
     end
   end
-      
+
 end
 
 %% TRACKER INTERFACE
 function tracker_interface()
     videos.dir_in = '';
     videos.dir_out = '';
-    videos.filter = '*';  
+    videos.filter = '*';
     options = [];
     f_calib = '';
-    
+
     % specify valid extensions
     videoReaderFmts = VideoReader.getFileFormats();
-    commonFmts = {'avi','mov','mp4','wmv','m4v','mpg'};
+    commonFmts = {'avi','mov','mp4','wmv','m4v','mpg','mkv'};
     specialFmts = {'fmf','sbfmf','ufmf','seq','bin'};
     valid_extns = union(commonFmts,specialFmts);
-    valid_extns = union({videoReaderFmts.Extension},valid_extns);  
-    
-    % ----- LOAD INTERFACE -----   
+    valid_extns = union({videoReaderFmts.Extension},valid_extns);
+
+    % ----- LOAD INTERFACE -----
     % MAIN WINDOW
     scrsz = get(0,'ScreenSize');
     fig_width = 620;
@@ -435,7 +435,7 @@ function tracker_interface()
     set(fig_h,'CloseRequestFcn',@ui_close)
     figclr = get(fig_h,'color');
     fs = 72/get(0,'ScreenPixelsPerInch'); % scale fonts to resemble the mac
-    
+
     % title
     text_x = 20;
     text_y = fig_height-50;
@@ -444,7 +444,7 @@ function tracker_interface()
     'HorizontalAlignment', 'left', ...
     'BackgroundColor', figclr, ...
     'FontSize',fs*14, 'FontWeight', 'bold');
-    
+
     % SELECT READ FOLDER
     text_y = text_y - 40;
     uicontrol('Style', 'pushbutton', 'String', 'VIDEO folder', ...
@@ -464,8 +464,8 @@ function tracker_interface()
     'Value',1,'BackgroundColor',figclr,...
     'FontSize',fs*12, ...
     'Callback',@setExtension,...
-    'ToolTipString','Only videos with selected extension will be processed');  
-    
+    'ToolTipString','Only videos with selected extension will be processed');
+
     % SELECT SAVE FOLDER
     text_y = text_y - 50;
     uicontrol('Style', 'pushbutton', 'String', 'OUTPUT folder', ...
@@ -479,7 +479,7 @@ function tracker_interface()
     'Position',[text_x+170 text_y 300 30], ...
     'HorizontalAlignment', 'left', ...
     'BackgroundColor', figclr, ...
-    'FontSize',fs*10);   
+    'FontSize',fs*10);
 
     % CALIBRATION FILE
     text_y = text_y - 50;
@@ -489,7 +489,7 @@ function tracker_interface()
     'BackgroundColor', figclr, ...
     'FontSize',fs*12,...
     'Callback', @selectCalibrationFile, ...
-    'ToolTipString','Select existing calibration file');     
+    'ToolTipString','Select existing calibration file');
     f_calib_h = uicontrol('Style', 'edit', 'String',  f_calib, ...
     'Position',[text_x+170 text_y 300 30], ...
     'HorizontalAlignment', 'left', ...
@@ -499,7 +499,7 @@ function tracker_interface()
     'Position',[text_x+470 text_y-15 20 40], ...
     'HorizontalAlignment', 'center', ...
     'BackgroundColor', figclr, ...
-    'FontSize',fs*12);     
+    'FontSize',fs*12);
     uicontrol('Style', 'pushbutton', 'String', 'CALIBRATE', ...
     'Position',[text_x+490 text_y-3 80 35], ...
     'HorizontalAlignment', 'left', ...
@@ -529,20 +529,20 @@ function tracker_interface()
         'Position',[text_x text_y 60 25], ...
         'HorizontalAlignment', 'right', ...
         'BackgroundColor', figclr, ...
-        'FontSize',fs*13);   
+        'FontSize',fs*13);
     text_x = text_x + 70;
     uicontrol('Style', 'text', 'String', 'max minutes:', ...
         'Position',[text_x text_y 87 25], ...
         'HorizontalAlignment', 'left', ...
         'BackgroundColor', figclr, ...
         'FontSize',fs*12, ...
-        'ToolTipString','Upper limit on number of minutes to process');        
+        'ToolTipString','Upper limit on number of minutes to process');
     max_h = uicontrol('Style', 'edit', 'String', 'Inf', ...
         'Position',[text_x+87 text_y+2 50 25], ...
         'HorizontalAlignment', 'center', ...
         'BackgroundColor', figclr, ...
-        'FontSize',fs*12);    
-    % chunksize 
+        'FontSize',fs*12);
+    % chunksize
     chunktype_h = uicontrol('Style', 'popup', ...
         'String', 'chunksize (frames):|number of chunks:', ...
         'Position',[text_x+158 text_y 155 25], ...
@@ -550,13 +550,13 @@ function tracker_interface()
         'BackgroundColor', figclr, ...
         'FontSize',fs*12,...
         'Callback',@setChunkType, ...
-        'ToolTipString','Each video is processed in chunks of frames');    
+        'ToolTipString','Each video is processed in chunks of frames');
     chunk_h = uicontrol('Style', 'edit', 'String', '10000', ...
         'Position',[text_x+311 text_y+2 54 25], ...
         'HorizontalAlignment', 'center', ...
         'BackgroundColor', figclr, ...
-        'FontSize',fs*12);    
-    % use parallel pool     
+        'FontSize',fs*12);
+    % use parallel pool
     n_cores = feature('numCores');
     if n_cores > 1
         popstring = 'use 1 core';
@@ -569,7 +569,7 @@ function tracker_interface()
             'BackgroundColor', figclr, ...
             'FontSize',fs*12, ...
             'Callback',@setNCores,...
-            'ToolTipString','Process chunks in parallel on multiple cores');    
+            'ToolTipString','Process chunks in parallel on multiple cores');
     end
     text_x = text_x - 70;
     % OUTPUT OPTIONS
@@ -578,28 +578,28 @@ function tracker_interface()
         'Position',[text_x text_y 60 25], ...
         'HorizontalAlignment', 'right', ...
         'BackgroundColor', figclr, ...
-        'FontSize',fs*13);   
+        'FontSize',fs*13);
     % output writeJAABA folders
     jab_h = uicontrol('Style', 'checkbox', 'String', 'save JAABA folders', ...
         'Position',[text_x+70 text_y+2 200 30], ...
         'HorizontalAlignment', 'left', ...
         'BackgroundColor', figclr, ...
         'FontSize',fs*12, ...
-        'ToolTipString','Save output to JAABA compatible folders');    
+        'ToolTipString','Save output to JAABA compatible folders');
     xls_h = uicontrol('Style', 'checkbox', 'String', 'save to .xls', ...
         'Position',[text_x+228 text_y+2 200 30], ...
         'HorizontalAlignment', 'left', ...
         'BackgroundColor', figclr, ...
         'FontSize',fs*12, ...
-        'ToolTipString','Save output to .xls');    
+        'ToolTipString','Save output to .xls');
     seg_h = uicontrol('Style', 'checkbox', 'String', 'save segmentation', ...
         'Position',[text_x+340 text_y+2 200 30], ...
         'HorizontalAlignment', 'left', ...
         'BackgroundColor', figclr, ...
         'FontSize',fs*12, ...
-        'ToolTipString','Save video segmentation (this produces large files)');    
+        'ToolTipString','Save video segmentation (this produces large files)');
 
-    % CLOSE and TRACK BUTTONS   
+    % CLOSE and TRACK BUTTONS
     text_y = text_y - 30;
     uicontrol('Style', 'text', 'String', '', ...
     'Position',[text_x text_y fig_width-40 1], ...
@@ -614,7 +614,7 @@ function tracker_interface()
     'BackgroundColor', [.9 .6 .7], ...
     'FontSize',fs*12, ...
     'Callback', @ui_close, ...
-    'ToolTipString','Close without tracking');    
+    'ToolTipString','Close without tracking');
     uicontrol('Style', 'pushbutton', 'String', 'TRACK', ...
     'Position',[text_x+125 text_y-5 140 40], ...
     'HorizontalAlignment', 'left', ...
@@ -622,7 +622,7 @@ function tracker_interface()
     'FontSize',fs*12, ...
     'Callback', @finishAndTrack, ...
     'ToolTipString','Track all videos in READ folder');
-    
+
     % CALLBACK FUNCTIONS
     function setChunkType(hObj,event) %#ok<INUSD>
         value = get(hObj,'Value');
@@ -631,13 +631,13 @@ function tracker_interface()
         else
             n_chunks = 10;
             if n_cores > 1
-                n_chunks = get(par_h,'Value')*2;                
+                n_chunks = get(par_h,'Value')*2;
             end
             set(chunk_h,'String',num2str(n_chunks));
         end
     end
     function setNCores(hObj,event) %#ok<INUSD>
-        options.num_cores = get(hObj,'Value');                
+        options.num_cores = get(hObj,'Value');
         if options.num_cores > 1
             set(chunk_h,'String',num2str(options.num_cores*2));
             set(chunktype_h,'Value',2);
@@ -647,9 +647,9 @@ function tracker_interface()
         end
     end
     function setExtension(hObj,event) %#ok<INUSD>
-        string = get(hObj,'String');        
-        if ~iscell(string), 
-            return; 
+        string = get(hObj,'String');
+        if ~iscell(string),
+            return;
         end
         idx = get(hObj,'Value');
         val = string{idx};
@@ -666,16 +666,16 @@ function tracker_interface()
         extns = cell(1,numel(files));
         count_valid = 0;
         for f=1:numel(files)
-            [~,~,extn] = fileparts(files(f).name);  
+            [~,~,extn] = fileparts(files(f).name);
             if any(strcmpi(extn(2:end),valid_extns))
                 count_valid = count_valid+1;
                 extns{count_valid} = extn;
             end
         end
         extns = extns(1:count_valid);
-        extns = unique(extns);        
+        extns = unique(extns);
         if numel(extns)>0
-            set(extn_h,'string',extns);  
+            set(extn_h,'string',extns);
             videos.filter = ['*' extns{1}];
         end
     end
@@ -685,18 +685,18 @@ function tracker_interface()
         videos.dir_in = directory;
         set(f_read_h,'String',directory);
         % update extensions
-        updateExtensions;        
+        updateExtensions;
         % update save directory
         videos.dir_out = directory;
-        set(f_save_h,'String',directory);            
+        set(f_save_h,'String',directory);
         % update calibration file
         f_calib = fullfile(videos.dir_in,'calibration.mat');
         if ~exist(f_calib,'file')
            f_calib = '';
-        else 
+        else
            set(f_calib_h,'String',f_calib);
         end
-    end 
+    end
     function selectSaveFolder(hObj,event) %#ok<INUSD>
         directory = uigetdir(videos.dir_in,'Select SAVE folder');
         if ~directory, directory = ''; end
@@ -716,10 +716,10 @@ function tracker_interface()
     function runCalibrator(hObj,event) %#ok<INUSD>
        vid_files = dir(fullfile(videos.dir_in, videos.filter));
        vid_files([vid_files.isdir]) = [];
-       vid_files = { vid_files.name };           
+       vid_files = { vid_files.name };
        valid = false(size(vid_files));
        for f=1:numel(vid_files)
-          [~,~,extn] = fileparts(vid_files{f});  
+          [~,~,extn] = fileparts(vid_files{f});
           if any(strcmpi(extn(2:end),valid_extns))
               valid(f) = 1;
           end
@@ -749,16 +749,16 @@ function tracker_interface()
         minutes = str2double(str);
         if ~isempty(minutes)
             options.max_minutes = minutes;
-        end        
+        end
         str = get(chunk_h,'String');
         value = str2double(str);
-        type = get(chunktype_h,'Value');        
+        type = get(chunktype_h,'Value');
         if ~isempty(value)
             if type == 1
                 options.granularity = value;
             else
                 options.num_chunks = value;
-            end    
+            end
         end
         value = get(jab_h,'Value');
         options.save_JAABA = value;
@@ -772,6 +772,6 @@ function tracker_interface()
         run_tracker(videos,options,f_calib);
     end
     function ui_close(hObj,event) %#ok<INUSD>
-        delete(fig_h);     
-    end    
+        delete(fig_h);
+    end
 end
