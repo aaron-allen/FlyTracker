@@ -85,7 +85,7 @@ function vinfo = video_open(filename, cache_size)
           % Orignial code had '.NumberOfFrames' as part of the vidobj. This doesn't seem to be
           % the case anymore. So I now use '.Duration' (in seconds) multiplied by '.FrameRate'
           % to get the total number of frames.
-          vinfo.n_frames = vinfo.vidobj.Duration*vinfo.vidobj.FrameRate;
+          vinfo.n_frames = floor(vinfo.vidobj.Duration .* vinfo.vidobj.FrameRate);
           %-----------------------------------------------------
 
 
