@@ -40,7 +40,16 @@ function [im,id] = video_read_frame(vinfo, id)
    %%% standard video format, read by VideoReader
    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    elseif (strcmp(vinfo.type,'vidobj'))
-      im = read(vinfo.vidobj,id+1);
+      % Original version used VideoReader's read. This seems to be very slow
+      % and is what seems to be taking all the time when running calibrator.
+      % My initial testing (of running the calibrator GUI) suggests that re-
+      % setting the CurrentTime and then using readFrame instead of read,
+      % results in a 3-4x speed increase. Video playback in visualizer is also
+      % slightly better (but may still be suffering from too few keyframes?).
+      vinfo.vidobj.CurrentTime=(id)/vinfo.vidobj.FrameRate;
+      im = readFrame(vinfo.vidobj);
+
+      % im = read(vinfo.vidobj,id+1);
       im = double(im)/255;
       if size(im,3) > 1
           im = (im(:,:,1)+im(:,:,2)+im(:,:,3))./3;
