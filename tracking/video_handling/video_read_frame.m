@@ -46,7 +46,9 @@ function [im,id] = video_read_frame(vinfo, id)
       % setting the CurrentTime and then using readFrame instead of read,
       % results in a 3-4x speed increase. Video playback in visualizer is also
       % slightly better (but may still be suffering from too few keyframes?).
-      vinfo.vidobj.CurrentTime=(id)/vinfo.vidobj.FrameRate;
+      if (vinfo.vidobj.CurrentTime ~= (id)/vinfo.vidobj.FrameRate)
+          vinfo.vidobj.CurrentTime=(id)/vinfo.vidobj.FrameRate;
+      end
       im = readFrame(vinfo.vidobj);
 
       % im = read(vinfo.vidobj,id+1);
