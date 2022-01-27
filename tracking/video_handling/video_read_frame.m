@@ -52,10 +52,17 @@ function [im,id] = video_read_frame(vinfo, id)
       im = readFrame(vinfo.vidobj);
 
       % im = read(vinfo.vidobj,id+1);
-      im = double(im)/255;
       if size(im,3) > 1
-          im = (im(:,:,1)+im(:,:,2)+im(:,:,3))./3;
+          if isequal(im(:,:,1),im(:,:,2))
+              im = im(:,:,1)
+          else
+              im = (im(:,:,1)+im(:,:,2)+im(:,:,3))./3;
+          end
       end
+      % moved the rescaling until after the image is 2D. in single instance
+      % tests, it seems to run 4-10x faster
+      im = double(im)/255;
+
    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    %%% standard video format, read by mmread
    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
