@@ -54,7 +54,7 @@ function [im,id] = video_read_frame(vinfo, id)
       % im = read(vinfo.vidobj,id+1);
       if size(im,3) > 1
           if isequal(im(:,:,1),im(:,:,2))
-              im = im(:,:,1)
+              im = im(:,:,1);
           else
               im = (im(:,:,1)+im(:,:,2)+im(:,:,3))./3;
           end
