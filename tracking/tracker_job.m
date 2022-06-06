@@ -67,9 +67,9 @@ function flag = tracker_job_calibrate(f_vid, f_bg, f_calib, options, parent_cali
   if (force_calib || ~exist(f_calib,'file')),
     % initialize to be the same as parent
     calib = parent_calib;
-    
+
     if parent_calib.auto_detect,
-      
+
       % load background
       if ~exist('bg','var')
         D = load(f_bg); bg = D.bg;
@@ -89,7 +89,7 @@ function flag = tracker_job_calibrate(f_vid, f_bg, f_calib, options, parent_cali
       calib.r = r;
       calib.w = w;
       calib.h = h;
-      
+
       if isfield(parent_calib,'arena_r_mm'),
         calib.PPM = calib.r / parent_calib.arena_r_mm;
       elseif isfield(parent_calib,'arena_w_mm'),
@@ -97,7 +97,21 @@ function flag = tracker_job_calibrate(f_vid, f_bg, f_calib, options, parent_cali
       elseif isfield(parent_calib,'arena_h_mm'),
         calib.PPM = calib.h / parent_calib.arena_h_mm;
       end
-      
+      % adding struff from calibrator.m "finish" function to update valid_chambers
+      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+      tmp_vinfo = vinfo;
+      n_frames = tmp_vinfo.n_frames;
+      step = round(n_frames/6);
+      start = step;
+      limit = step*4+1;
+      imgs = cell(1,4);
+      frames = start:step:limit;
+      for idx=1:4
+          imgs{idx} = video_read_frame(tmp_vinfo,frames(idx));
+      end
+      % remove masks where no flies are present
+      nonempty_chambers = zeros(1,numel(calib.rois));
+      blob_count = zeros(1,numel(calib.rois));
       masks = cell(1,size(centers,1));
       rois = cell(1,size(centers,1));
       full_mask = zeros(size(calib.full_mask));
@@ -118,9 +132,22 @@ function flag = tracker_job_calibrate(f_vid, f_bg, f_calib, options, parent_cali
           mask(valid) = 1;
           rois{i} = round([centers(i,1)-r centers(i,2)-r r*2 r*2]);
         end
-        masks{i} = mask;
-        full_mask = full_mask | mask;
+        dets = track_detect(tmp_vinfo,bg,calib,[],imgs);
+        n_flies = 0;
+        for j=1:numel(imgs)
+            n_flies = n_flies + dets.frame_data{j}.body_cc.NumObjects;
+        end
+        blob_count(i) = n_flies/numel(imgs);
+        if n_flies > 0
+            nonempty_chambers(i) = 1;
+            masks{i} = mask;
+            full_mask = full_mask | masks{i};
+        else
+            disp(['Chamber ' num2str(i) ' appears to be empty'])
+        end
       end
+      calib.valid_chambers = nonempty_chambers;
+      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       calib.masks = masks;
       calib.mask = masks{1};
       calib.full_mask = full_mask;
@@ -131,14 +158,14 @@ function flag = tracker_job_calibrate(f_vid, f_bg, f_calib, options, parent_cali
 end
 
 % Run detect,match,segment, and link, to obtain tracks for frame range (fr)
-function flag = tracker_job_process(f_vid, f_bg, f_calib, f_trks, fr, vinfo)  
+function flag = tracker_job_process(f_vid, f_bg, f_calib, f_trks, fr, vinfo)
   flag = 0;
   % skip if output file exists
   if (exist(f_trks{end},'file'))
      flag = 1;
      return;
-  end  
-  % open video 
+  end
+  % open video
   do_close = 0;
   if nargin < 6 || isempty(vinfo)
     vinfo = video_open(f_vid);
@@ -150,7 +177,7 @@ function flag = tracker_job_process(f_vid, f_bg, f_calib, f_trks, fr, vinfo)
   calib = load(f_calib); calib = calib.calib;
   calib.mask = zeros(size(calib.mask));
   valid = find(calib.valid_chambers);
-  n_chambers = numel(valid);  
+  n_chambers = numel(valid);
   for c=1:n_chambers
       calib.mask = calib.mask | calib.masks{valid(c)};
   end
@@ -160,12 +187,12 @@ function flag = tracker_job_process(f_vid, f_bg, f_calib, f_trks, fr, vinfo)
   if isnumeric(dets) && ~dets, return; end
   % close video
   if do_close, video_close(vinfo); end
-  % process each chamber separately          
-  for c=1:n_chambers      
+  % process each chamber separately
+  for c=1:n_chambers
       % skip if output file exists
       if (exist(f_trks{c},'file'))
          continue;
-      end  
+      end
       % extract relevant detections
       if n_chambers == 1
           dets_c = dets;
@@ -175,12 +202,12 @@ function flag = tracker_job_process(f_vid, f_bg, f_calib, f_trks, fr, vinfo)
           dets_c = dets{c};
       end
       calib = calib_main;
-      % check whether detections agree with specified number of flies      
+      % check whether detections agree with specified number of flies
       n_frames = numel(dets_c.frame_ids);
       count_num_flies = zeros(1,n_frames);
       ferts = zeros(1,n_frames);
       for i=1:n_frames
-          props = dets_c.frame_data{i}.body_props;       
+          props = dets_c.frame_data{i}.body_props;
           count_num_flies(i) = numel(props);
           ferts(i) = sum(detection_fertility(dets_c.frame_data{i},calib.params));
       end
@@ -204,7 +231,7 @@ function flag = tracker_job_process(f_vid, f_bg, f_calib, f_trks, fr, vinfo)
       % segment foreground into bodyparts (wings, legs)
       trks = track_segment(trks,calib,1,chamber_str);
       if isnumeric(trks) && ~trks, return; end
-      % link tracklets      
+      % link tracklets
       trks = track_link(trks,calib);
       % save tracks
       save(f_trks{c},'trks','-v7.3')
@@ -223,24 +250,24 @@ function flag = tracker_job_combine(f_res, f_trk_list, f_calib, options, chamber
   % load info
   calib = load(f_calib); calib = calib.calib;
   im_size = size(calib.mask);
-  save_seg = 1; 
-  if isfield(options,'save_seg'), save_seg = options.save_seg; end  
+  save_seg = 1;
+  if isfield(options,'save_seg'), save_seg = options.save_seg; end
   % initialize waitbar
-  steps = 0;  
+  steps = 0;
   n_steps = numel(f_trk_list) + 1 + save_seg;
   display_available = feature('ShowFigureWindows');
   waitstr = [chamber_str 'Combining tracks'];
   if display_available
      multiWaitbar(waitstr,0,'Color','g','CanCancel','on');
      waitObject = onCleanup(@() multiWaitbar(waitstr,'Close'));
-  end      
+  end
 
   % COMBINE TRACKS
   % count number of sequences and number of frames
   n_seq = 0;
   n_frm = options.startframe-1;
   n_seq_guess = numel(f_trk_list)*calib.n_flies;
-  n_frm_guess = numel(f_trk_list)*options.granularity;      
+  n_frm_guess = numel(f_trk_list)*options.granularity;
   endframe_guess = n_frm_guess + options.startframe-1;
   % initialize combined tracks
   trk.frame_ids      = zeros([1 endframe_guess]);
@@ -250,7 +277,7 @@ function flag = tracker_job_combine(f_res, f_trk_list, f_calib, options, chamber
   flags = [];
   if save_seg
       frame_data = cell([endframe_guess 1]);
-  end      
+  end
   s = 0;
   f = options.startframe-1;
   for n = 1:numel(f_trk_list)
@@ -286,16 +313,16 @@ function flag = tracker_job_combine(f_res, f_trk_list, f_calib, options, chamber
      f = f + numel(trk_curr.frame_ids);
      % update waitbar
      steps = steps + 1;
-     if display_available   
+     if display_available
         abort = multiWaitbar(waitstr,steps/n_steps);
         if abort, return; end
-     end 
+     end
   end
   % update trk in case n_frm_guess and n_seq_guess were off
-  trk.frame_ids      = trk.frame_ids(1:n_frm);  
+  trk.frame_ids      = trk.frame_ids(1:n_frm);
   trk.frame_seq_list = trk.frame_seq_list(1:n_frm);
   trk.sequences      = trk.sequences(1:n_seq);
-  if save_seg 
+  if save_seg
       frame_data = frame_data(1:n_frm);
   end
   % link tracks
@@ -312,25 +339,25 @@ function flag = tracker_job_combine(f_res, f_trk_list, f_calib, options, chamber
     seq_map = map(seq_idx);
     flags(inds,1:2) = seq_map(flags(inds,1:2));
   end
-  % order sequences such that the lower id is first 
+  % order sequences such that the lower id is first
   flagSeqs = flags(:,1:2);
-  flags(:,1:2) = [min(flagSeqs,[],2) max(flagSeqs,[],2)];                     
+  flags(:,1:2) = [min(flagSeqs,[],2) max(flagSeqs,[],2)];
   trk.flags = flags; %%TODO union with current trk.flags?
   % check whether coordinates need to be adjusted to roi
   adjust = 0;
-  if isfield(trk_curr,'roi') 
+  if isfield(trk_curr,'roi')
       shift = [trk_curr.roi(2)-1 trk_curr.roi(1)-1];
       roi_size = [trk_curr.roi(3)-trk_curr.roi(1)+1 ...
           trk_curr.roi(4)-trk_curr.roi(2)+1];
-      if sum(roi_size==im_size) < 2  
+      if sum(roi_size==im_size) < 2
         adjust = 1;
       end
-  end      
+  end
   % gather sequences to data matrix
   n_objs = numel(trk.sequences);
   n_frames = numel(trk.frame_ids);
   trk.names = trk_curr.names;
-  n_feats = numel(trk.names);  
+  n_feats = numel(trk.names);
   trk.data = nan(n_objs,n_frames,n_feats);
   for s=1:n_objs
       frames = trk.sequences{s}.time_start:trk.sequences{s}.time_end;
@@ -344,18 +371,18 @@ function flag = tracker_job_combine(f_res, f_trk_list, f_calib, options, chamber
   % remove unnecessary fields from trk
   trk_full = trk; trk = [];
   trk.names = trk_full.names;
-  trk.data  = trk_full.data;      
-  trk.flags = trk_full.flags;      
+  trk.data  = trk_full.data;
+  trk.flags = trk_full.flags;
   if sum(abs(trk_full.frame_ids - (0:size(trk.data,2)-1))) ~= 0
-      trk.frame_ids = trk_full.frame_ids;          
+      trk.frame_ids = trk_full.frame_ids;
   end
   % update waitbar
   steps = steps + 1;
-  if display_available   
+  if display_available
      abort = multiWaitbar(waitstr,steps/n_steps);
      if abort, return; end
-  end  
-  
+  end
+
   % COMBINE SEGMENTATION
   if save_seg
       seg = cell(n_frm,1);
@@ -393,19 +420,19 @@ function flag = tracker_job_combine(f_res, f_trk_list, f_calib, options, chamber
               end
           end
           seg{f} = flies;
-      end          
+      end
       clear frame_data
       % update waitbar
       steps = steps + 1;
-      if display_available   
+      if display_available
          abort = multiWaitbar(waitstr,steps/n_steps);
          if abort, return; end
-      end       
-  end   
-  
+      end
+  end
+
   % AUTOMATIC ID CORRECTION
   try
-      [trk,swaps] = track_auto_id(trk);  
+      [trk,swaps] = track_auto_id(trk);
   catch err
       disp(err)
       disp('Warning: Could not auto correct ids, classifier binaries may be missing for your OS.')
@@ -422,7 +449,7 @@ function flag = tracker_job_combine(f_res, f_trk_list, f_calib, options, chamber
             seg{f}{fly1} = seg{f}{fly2};
             seg{f}{fly2} = tmp;
         end
-      end      
+      end
   end
   % order flies based on their size
   areas = nanmean(trk.data(:,:,6),2);
@@ -435,32 +462,32 @@ function flag = tracker_job_combine(f_res, f_trk_list, f_calib, options, chamber
   end
   map = zeros(size(sortids));
   map(sortids) = 1:numel(sortids);
-  trk.flags(:,1:2) = map(trk.flags(:,1:2)); 
+  trk.flags(:,1:2) = map(trk.flags(:,1:2));
   % save files
-  save(f_res,'trk'); %save([f_res(1:end-10) '-swaps.mat'],'swaps');  
-  if save_seg      
-     save([f_res(1:end-10) '-seg.mat'],'seg','-v7.3'); 
-  end    
+  save(f_res,'trk'); %save([f_res(1:end-10) '-swaps.mat'],'swaps');
+  if save_seg
+     save([f_res(1:end-10) '-seg.mat'],'seg','-v7.3');
+  end
   % delete temp chunk files
   for n=1:numel(f_trk_list)
       f_trk_curr = f_trk_list{n};
       delete(f_trk_curr);
-  end          
+  end
   % close waitbar
   if display_available
     multiWaitbar(waitstr,'Close');
     drawnow
-  end  
+  end
   % indicate that everything worked
   flag = 1;
 end
 
-% Join results of multiple chambers 
+% Join results of multiple chambers
 function tracker_job_consolidate(f_res, f_res_list, options)
-  n_chambers = numel(f_res_list);      
-  save_seg = 0;  
+  n_chambers = numel(f_res_list);
+  save_seg = 0;
   if isfield(options,'save_seg'), save_seg = options.save_seg; end
-  
+
   % CONSOLIDATE TRACKS
   D = load(f_res_list{1});
   trk.names = D.trk.names;
@@ -480,7 +507,7 @@ function tracker_job_consolidate(f_res, f_res_list, options)
   end
   n_flies = sum(flies);
   % combine data and store ids of flies in chambers
-  trk.data = zeros(n_flies,n_frames,n_fields);                
+  trk.data = zeros(n_flies,n_frames,n_fields);
   count = 0;
   for i=1:n_chambers
       for t=1:flies(i)
@@ -491,7 +518,7 @@ function tracker_job_consolidate(f_res, f_res_list, options)
           flies_in_chamber{i} = [flies_in_chamber{i} count];
       end
   end
-  trk.flies_in_chamber = flies_in_chamber; 
+  trk.flies_in_chamber = flies_in_chamber;
   % combine flags
   flags = zeros(n_flags,6);
   count = 0;
@@ -507,14 +534,14 @@ function tracker_job_consolidate(f_res, f_res_list, options)
   % delete previous files
   for i=1:n_chambers
       delete(f_res_list{i});
-  end          
+  end
 
-  % CONSOLIDATE SEGMENTATION 
+  % CONSOLIDATE SEGMENTATION
   if save_seg
-    f_res_seg = [f_res(1:end-10) '-seg.mat']; 
+    f_res_seg = [f_res(1:end-10) '-seg.mat'];
     try
         segfile = [f_res_list{1}(1:end-10) '-seg.mat'];
-        D = load(segfile); 
+        D = load(segfile);
         n_frames = numel(D.seg);
         seg = cell(n_frames,1);
         for i=1:n_chambers
@@ -534,7 +561,7 @@ function tracker_job_consolidate(f_res, f_res_list, options)
     catch
         disp('could not write segmentation file')
     end
-  end  
+  end
 end
 
 % Compute features from tracking data
@@ -542,12 +569,12 @@ function tracker_job_features(f_vid, f_res, f_calib, options, recompute)
   if nargin < 5 || isempty(recompute)
       recompute = 0;
   end
-  calib = load(f_calib); calib = calib.calib;            
+  calib = load(f_calib); calib = calib.calib;
 
-  % write feat file  
+  % write feat file
   featfile = [f_res(1:end-10) '-feat.mat'];
   if ~exist(featfile,'file') || recompute
-    trk = load(f_res); trk = trk.trk;    
+    trk = load(f_res); trk = trk.trk;
     feat = feat_compute(trk,calib);
     save(featfile,'feat');
   end
@@ -568,12 +595,12 @@ function tracker_job_features(f_vid, f_res, f_calib, options, recompute)
          data(:,:,size(trk.data,3)+(1:size(feat.data,3))) = feat.data;
          writeXls(xlsfile,data,names);
       end
-  end  
-  
+  end
+
   % write JAABA folders
   if options.save_JAABA
       JAABA_dir = [f_res(1:end-10) '-JAABA'];
-      if (~exist(JAABA_dir,'dir') || recompute)      
+      if (~exist(JAABA_dir,'dir') || recompute)
          if ~exist('trk','var')
              trk = load(f_res); trk = trk.trk;
          end
@@ -581,9 +608,9 @@ function tracker_job_features(f_vid, f_res, f_calib, options, recompute)
              feat = load(featfile); feat = feat.feat;
          end
          % augment features (with log, norms, and derivatives)
-         feat = feat_augment(feat);      
+         feat = feat_augment(feat);
          writeJAABA(f_res,f_vid,trk,feat,calib);
-      end     
+      end
   end
- 
+
 end
