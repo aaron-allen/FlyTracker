@@ -232,12 +232,12 @@ function detections = track_detect(vinfo, bg, calib, frame_range, imgs, calibrat
     end  
     
     % if multiple chambers, split detections amongst valid masks    
-    if ~calibrating
+    %if ~calibrating
         masks = calib.masks(calib.valid_chambers==1);
         if numel(masks) > 1
             detections = mask_detections(detections,masks);
         end
-    end
+    %end
     
     % close waitbar
     if show_progress

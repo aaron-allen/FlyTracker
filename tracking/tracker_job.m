@@ -135,7 +135,7 @@ function flag = tracker_job_calibrate(f_vid, f_bg, f_calib, options, parent_cali
         dets = track_detect(tmp_vinfo,bg,calib,[],imgs);
         n_flies = 0;
         for j=1:numel(imgs)
-            n_flies = n_flies + dets.frame_data{j}.body_cc.NumObjects;
+            n_flies = n_flies + dets{i}.frame_data{j}.body_cc.NumObjects;
         end
         blob_count(i) = n_flies/numel(imgs);
         if n_flies > 0
