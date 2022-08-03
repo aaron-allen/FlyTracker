@@ -148,7 +148,13 @@ function flag = tracker_job_calibrate(f_vid, f_bg, f_calib, options, parent_cali
       end
       calib.valid_chambers = nonempty_chambers;
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-      calib.masks = masks;
+
+
+      % not sure why this bit was here, but track_link still fails if this is kept
+      % removing this seems to work and valid chambers is updated and tracking finishes
+      % calib.masks = masks;
+
+
       calib.mask = masks{1};
       calib.full_mask = full_mask;
     end
