@@ -25,7 +25,7 @@
 %           .body_props    - properties of body_cc
 %           .fg_body       - indicates which bodies are contained in a fg
 %           .body_fg       - indicates which fg a body belongs to
-%           .body_contrast - mean gradient in image cropped around body          
+%           .body_contrast - mean gradient in image cropped around body
 %       roi        - region of interest defined by mask, all coordinates in
 %                    frame_data are in terms of the roi
 %       If calibration has multiple chambers, detections is a cell array of
@@ -37,9 +37,9 @@ function detections = track_detect(vinfo, bg, calib, frame_range, imgs, calibrat
        frame_range.start = 0;
        frame_range.step  = 1;
        frame_range.limit = vinfo.n_frames;
-    end    
+    end
     % copy info from calibration
-    params      = calib.params; 
+    params      = calib.params;
     mask        = calib.mask;
     [I,J]       = find(calib.mask);
     roi         = [min(I),min(J),max(I),max(J)];
@@ -59,9 +59,9 @@ function detections = track_detect(vinfo, bg, calib, frame_range, imgs, calibrat
     else
         img = video_read_frame(vinfo,1);
         use_imgs = 0;
-    end 
+    end
     %show_progress = ~calibrating;
-    
+
     % initialize detections
     detections.frame_ids = ...
        (frame_range.start):(frame_range.step):(frame_range.limit-1);
@@ -72,14 +72,14 @@ function detections = track_detect(vinfo, bg, calib, frame_range, imgs, calibrat
     % check for nonempty input
     if (n_frames == 0), return; end
 
-    % check whether image needs to be inverted        
+    % check whether image needs to be inverted
     params.invert = bg.invert;
 
     % only consider parts of the image that are within the mask
     bg = bg.bg_mean;
     bg = bg.*mask;
-    bg = bg(roi(1):roi(3),roi(2):roi(4));       
-    
+    bg = bg(roi(1):roi(3),roi(2):roi(4));
+
     if show_progress
         % initialize waitbar
         display_available = feature('ShowFigureWindows');
@@ -87,22 +87,22 @@ function detections = track_detect(vinfo, bg, calib, frame_range, imgs, calibrat
         waitstep = max(1,floor(n_frames/100));
         if frame_range.limit < vinfo.n_frames || frame_range.start > 0
             waitstr = [waitstr ': frames ' num2str(frame_range.start) ...
-             '-' num2str(frame_range.limit) ' / ' num2str(vinfo.n_frames)];         
+             '-' num2str(frame_range.limit) ' / ' num2str(vinfo.n_frames)];
         end
         if calibrating
             waitstr = 'Finalizing calibration';
-        end        
+        end
         if display_available
             multiWaitbar(waitstr,0,'Color','g','CanCancel','on');
             waitObject = onCleanup(@() multiWaitbar(waitstr,'Close'));
         else
             percent = 0;
-            fprintf(1,[waitstr ': %d%%'], percent);             
-        end 
+            fprintf(1,[waitstr ': %d%%'], percent);
+        end
     end
-    
+
     % Loop through all frames and detect flies
-    for id_num = 1:n_frames            
+    for id_num = 1:n_frames
         id = detections.frame_ids(id_num);
         if use_imgs
             img = imgs{id_num};
@@ -111,13 +111,13 @@ function detections = track_detect(vinfo, bg, calib, frame_range, imgs, calibrat
             end
             img = img .* mask;
             img = img(roi(1):roi(3),roi(2):roi(4));
-        else   
+        else
             try
                 img = video_read_frame(vinfo,id);
                 if params.invert
                     img = 1-img;
                 end
-                % convert image to grayscale 
+                % convert image to grayscale
                 if (size(img,3)>1), img = rgb2gray(img); end
                 img = img .* mask;
                 img = img(roi(1):roi(3),roi(2):roi(4));
@@ -125,7 +125,7 @@ function detections = track_detect(vinfo, bg, calib, frame_range, imgs, calibrat
                 disp(['Warning: unable to read frame ' num2str(id+1)])
                 img = bg;
             end
-        end    
+        end
         if show_progress
             if display_available && mod(id_num,waitstep) == 0
                 abort = multiWaitbar(waitstr,id_num/n_frames);
@@ -136,17 +136,17 @@ function detections = track_detect(vinfo, bg, calib, frame_range, imgs, calibrat
                 end
                 percent = round(id_num/n_frames*100);
                 fprintf(1,'%d%%',percent);
-            end  
+            end
         end
-        
+
         % EXTRACT FOREGROUND ----------------------------------------------
         im_fg = max((bg - img),[],3);
         im_fg = im_fg./max(.1,bg); % to account for the difference when on food
         im_fg = im_fg/max(max(im_fg(:)),max(img(:))); % normalize
         im_fg_strong = (im_fg > params.fg_th_strong);
-        im_fg_weak   = (im_fg > params.fg_th_weak);     
-        fg_mask = imreconstruct(im_fg_strong, im_fg_weak);         
-        
+        im_fg_weak   = (im_fg > params.fg_th_weak);
+        fg_mask = imreconstruct(im_fg_strong, im_fg_weak);
+
         fg_inds = find(fg_mask);
         % check that foreground is nonempty
         if (numel(fg_inds) < params.fg_min_size)
@@ -154,11 +154,11 @@ function detections = track_detect(vinfo, bg, calib, frame_range, imgs, calibrat
             empty_cc = bwconncomp(zeros(size(fg_mask)));
             empty_props = regionprops(empty_cc, params.r_props);
             detect.fg_cc      = empty_cc;   	% foreground components
-            detect.fg_props   = empty_props;	% foreground properties 
+            detect.fg_props   = empty_props;	% foreground properties
             detect.body_cc    = empty_cc;       % body components
             detect.body_props = empty_props; 	% body properties
             detect.fg_body    = cell([0 1]);	% bodies in each fg comp
-            detect.body_fg    = zeros([0 1]); 	% fg comp for each body            
+            detect.body_fg    = zeros([0 1]); 	% fg comp for each body
             detect.body_contrast = 0;
             % store detections
             detections.frame_data{id_num} = detect;
@@ -173,23 +173,23 @@ function detections = track_detect(vinfo, bg, calib, frame_range, imgs, calibrat
             if calib.PPM >= 3
                 body_mask = imdilate(imerode(body_mask,params.strels{2}),params.strels{2});
             end
-            body_mask = fg_mask & imfill(body_mask,'holes');          
+            body_mask = fg_mask & imfill(body_mask,'holes');
         else
             body_mask = fg_mask;
         end
         % partition body components
         body_cc    = bwconncomp(body_mask);
-        body_props = regionprops(body_cc, params.r_props);                 
+        body_props = regionprops(body_cc, params.r_props);
         % partition foreground components
         fg_cc      = bwconncomp(fg_mask);
         fg_label   = labelmatrix(fg_cc);
-        fg_props   = regionprops(fg_cc, params.r_props);   
-        
+        fg_props   = regionprops(fg_cc, params.r_props);
+
         % assemble detections in frame
         n_fg_comp   = numel(fg_cc.PixelIdxList);
         n_body_comp = numel(body_cc.PixelIdxList);
         detect.fg_cc      = fg_cc;                  % foreground components
-        detect.fg_props   = fg_props;               % foreground properties 
+        detect.fg_props   = fg_props;               % foreground properties
         detect.body_cc    = body_cc;                % body components
         detect.body_props = body_props;             % body properties
         detect.fg_body    = cell([n_fg_comp 1]);    % bodies in each fg comp
@@ -200,21 +200,21 @@ function detections = track_detect(vinfo, bg, calib, frame_range, imgs, calibrat
             detect.fg_body{f} = [detect.fg_body{f} b];
             detect.body_fg(b) = f;
         end
-        
+
         % merge non-atomic bodies with bodies sharing their foreground
         % (they may get split again during matching if necessary)
-        atomic = is_atomic_detection(detect,params);        
+        atomic = is_atomic_detection(detect,params);
         while any(atomic==0)
             do_merge = find(~atomic);
             obj_id = do_merge(1);
             detect = merge_bodies(detect,params,obj_id);
             atomic = is_atomic_detection(detect,params);
         end
-        
+
         % fill empty foregrounds and delete redundant ones
         detect = fill_empty_foregrounds(detect, params);
-        
-        % add information about body contrast 
+
+        % add information about body contrast
         contrast = nan(1,detect.body_cc.NumObjects);
         full_gradient = imgradient(im_fg);
         buff = params.fg_mask_buff;
@@ -223,22 +223,22 @@ function detections = track_detect(vinfo, bg, calib, frame_range, imgs, calibrat
             x_sub = max(1,pos(2)-buff):min(size(img,1),pos(2)+buff);
             y_sub = max(1,pos(1)-buff):min(size(img,2),pos(1)+buff);
             gradient = full_gradient(x_sub,y_sub);
-            contrast(b) = mean(gradient(:));                     
-        end         
+            contrast(b) = mean(gradient(:));
+        end
         detect.body_contrast = contrast;
 
         % store detections
-        detections.frame_data{id_num} = detect;          
-    end  
-    
-    % if multiple chambers, split detections amongst valid masks    
-    %if ~calibrating
+        detections.frame_data{id_num} = detect;
+    end
+
+    % if multiple chambers, split detections amongst valid masks
+    if ~calibrating
         masks = calib.masks(calib.valid_chambers==1);
         if numel(masks) > 1
             detections = mask_detections(detections,masks);
         end
-    %end
-    
+    end
+
     % close waitbar
     if show_progress
        if display_available
@@ -249,9 +249,9 @@ function detections = track_detect(vinfo, bg, calib, frame_range, imgs, calibrat
               fprintf(1,'\b');
            end
            percent = 100;
-           fprintf(1,'%d%% \n',percent);               
-       end   
-    end    
+           fprintf(1,'%d%% \n',percent);
+       end
+    end
 end
 
 function detect_new = merge_bodies(detect,params,obj_id)
@@ -261,9 +261,9 @@ function detect_new = merge_bodies(detect,params,obj_id)
     fg_id = detect.body_fg(obj_id);
     bods = detect.fg_body{fg_id};
     other_bods = setdiff(bods,obj_id); other_bods = other_bods(:)';
-    body_cc = detect.body_cc;     
+    body_cc = detect.body_cc;
     body_props = detect.body_props;
-    if numel(bods) > 1            
+    if numel(bods) > 1
         img = zeros(detect.body_cc.ImageSize);
         img(detect.body_cc.PixelIdxList{obj_id}) = 1;
         dist_map = bwdist(img);
@@ -271,17 +271,17 @@ function detect_new = merge_bodies(detect,params,obj_id)
         for b = 1:numel(other_bods)
             bod = other_bods(b);
             dists = dist_map(detect.body_cc.PixelIdxList{bod});
-            min_dists(b) = min(dists);            
+            min_dists(b) = min(dists);
         end
         [~,min_idx] = min(min_dists);
         bod = other_bods(min_idx);
         body_cc.PixelIdxList{bod} = ...
                 union(body_cc.PixelIdxList{bod}, ...
                   body_cc.PixelIdxList{obj_id},'rows');
-        body_props = regionprops(body_cc, params.r_props);  
+        body_props = regionprops(body_cc, params.r_props);
     end
     % remove blob from list of bodies
-    inds = [1:obj_id-1 obj_id+1:body_cc.NumObjects];        
+    inds = [1:obj_id-1 obj_id+1:body_cc.NumObjects];
     body_cc.NumObjects = detect.body_cc.NumObjects-1;
     body_cc.PixelIdxList = body_cc.PixelIdxList(inds);
     body_props = body_props(inds);
@@ -364,7 +364,7 @@ function masked_detections = mask_detections(detections,masks)
             for f=1:numel(fg_valid)
                 det.fg_body{f} = find(det.body_fg==f);
             end
-            det.body_contrast = det.body_contrast(body_valid);  
+            det.body_contrast = det.body_contrast(body_valid);
             dets.frame_data{i} = det;
         end
         masked_detections{m} = dets;

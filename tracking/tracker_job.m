@@ -97,21 +97,7 @@ function flag = tracker_job_calibrate(f_vid, f_bg, f_calib, options, parent_cali
       elseif isfield(parent_calib,'arena_h_mm'),
         calib.PPM = calib.h / parent_calib.arena_h_mm;
       end
-      % adding struff from calibrator.m "finish" function to update valid_chambers
-      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-      tmp_vinfo = vinfo;
-      n_frames = tmp_vinfo.n_frames;
-      step = round(n_frames/6);
-      start = step;
-      limit = step*4+1;
-      imgs = cell(1,4);
-      frames = start:step:limit;
-      for idx=1:4
-          imgs{idx} = video_read_frame(tmp_vinfo,frames(idx));
-      end
-      % remove masks where no flies are present
-      nonempty_chambers = zeros(1,numel(calib.rois));
-      blob_count = zeros(1,numel(calib.rois));
+
       masks = cell(1,size(centers,1));
       rois = cell(1,size(centers,1));
       full_mask = zeros(size(calib.full_mask));
@@ -132,32 +118,55 @@ function flag = tracker_job_calibrate(f_vid, f_bg, f_calib, options, parent_cali
           mask(valid) = 1;
           rois{i} = round([centers(i,1)-r centers(i,2)-r r*2 r*2]);
         end
+        masks{i} = mask;
+        full_mask = full_mask | mask;
+      end
+      calib.masks = masks;
+      calib.mask = masks{1};
+      calib.full_mask = full_mask;
+    end
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % From calibrator.m to update valid chambers
+
+    % load more images
+    tmp_vinfo = vinfo;
+    n_frames = tmp_vinfo.n_frames;
+    step = round(n_frames/6);
+    start = step;
+    limit = step*4+1;
+    imgs = cell(1,4);
+    frames = start:step:limit;
+    for idx=1:4
+        imgs{idx} = video_read_frame(tmp_vinfo,frames(idx));
+    end
+    % remove masks where no flies are present
+    nonempty_chambers = zeros(1,numel(calib.rois));
+    blob_count = zeros(1,numel(calib.rois));
+    calib.full_mask = zeros(size(calib.full_mask));
+    for i=1:numel(calib.rois)
+        calib.mask = calib.masks{i};
         dets = track_detect(tmp_vinfo,bg,calib,[],imgs);
         n_flies = 0;
         for j=1:numel(imgs)
-            n_flies = n_flies + dets{i}.frame_data{j}.body_cc.NumObjects;
+            n_flies = n_flies + dets.frame_data{j}.body_cc.NumObjects;
         end
         blob_count(i) = n_flies/numel(imgs);
         if n_flies > 0
             nonempty_chambers(i) = 1;
-            masks{i} = mask;
-            full_mask = full_mask | masks{i};
+            calib.full_mask = calib.full_mask | calib.masks{i};
         else
             disp(['Chamber ' num2str(i) ' appears to be empty'])
         end
-      end
-      calib.valid_chambers = nonempty_chambers;
-      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-      % not sure why this bit was here, but track_link still fails if this is kept
-      % removing this seems to work and valid chambers is updated and tracking finishes
-      % calib.masks = masks;
-
-
-      calib.mask = masks{1};
-      calib.full_mask = full_mask;
     end
+    if sum(nonempty_chambers) == 0
+        return
+    end
+    calib.valid_chambers = nonempty_chambers;
+    calib.mask = calib.full_mask;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
     save(f_calib,'calib');
   end
   flag = 1;
